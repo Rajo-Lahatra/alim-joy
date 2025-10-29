@@ -1,8 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { foodTrackerAPI } from '../lib/supabase'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+
+// Import conditionnel pour éviter les erreurs côté serveur
+let jsPDF, html2canvas
+if (typeof window !== 'undefined') {
+  import('jspdf').then(module => jsPDF = module.default)
+  import('html2canvas').then(module => html2canvas = module.default)
+}
 
 const daysOfWeek = [
   { name: "Lundi", order: 1 },
@@ -14,52 +19,20 @@ const daysOfWeek = [
   { name: "Dimanche", order: 7 }
 ]
 
-// Options pour le matin
-const morningOptions = [
-  "210ml eau + 7 mesures lait 2ème âge",
-  "210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales"
-]
-
-// Options pour le repas de midi
-const vegetables = [
-  "Carottes", "Haricots verts", "Épinards", "Courgettes", 
-  "Blanc de poireaux", "Potirons", "Betteraves rouges", 
-  "Brocolis", "Tomates", "Bettes (limité)", "Endives (jeunes, limité)", 
-  "Petits pois (extra-fins, limité)"
-]
-
-const proteins = [
-  "10g viande rouge", "10g viande blanche", "10g jambon cuit découenné",
-  "10g poisson maigre", "10g poisson gras", "10g œuf cuit dur (jaune seulement)"
-]
-
-const fruits = [
-  "Pomme", "Poire", "Banane", "Pêche", "Abricot", 
-  "Compote maison (sans sucre)", "Petit pot de fruits"
-]
-
-// Options pour le goûter (16h)
-const snackOptions = [
-  "Laitage bébé (yaourt, petit suisse) + biscuit + fruits",
-  "Laitage bébé seul",
-  "Biscuit + fruits",
-  "Compote de fruits maison"
-]
-
-// Options pour le repas du soir
-const eveningOptions = [
-  "Biberon de 210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales",
-  "Biberon de soupe avec 5 mesures de lait 2ème âge",
-  "Purée de légumes + fromage râpé + biberon 120-150ml lait",
-  "Petit pot légumes + biberon lait"
-]
+// ... (gardez le reste des options comme avant)
 
 export default function FoodTracker() {
   const [currentWeek, setCurrentWeek] = useState('')
   const [weekData, setWeekData] = useState({})
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [weeksHistory, setWeeksHistory] = useState([])
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Fonction pour obtenir le lundi d'une semaine
   const getMonday = (date) => {
@@ -71,27 +44,33 @@ export default function FoodTracker() {
 
   // Initialiser la semaine courante
   useEffect(() => {
-    const today = new Date()
-    const weekString = getMonday(today)
-    setCurrentWeek(weekString)
-  }, [])
+    if (isClient) {
+      const today = new Date()
+      const weekString = getMonday(today)
+      setCurrentWeek(weekString)
+    }
+  }, [isClient])
 
   // Charger les données de la semaine
   useEffect(() => {
-    if (currentWeek) {
+    if (currentWeek && isClient) {
       loadWeekData()
       loadWeeksHistory()
     }
-  }, [currentWeek])
+  }, [currentWeek, isClient])
 
   const loadWeekData = async () => {
+    if (!isClient) return
+    
     setLoading(true)
     try {
       const data = await foodTrackerAPI.getWeekData(currentWeek)
       const dataMap = {}
-      data.forEach(item => {
-        dataMap[item.day_name] = item
-      })
+      if (data) {
+        data.forEach(item => {
+          dataMap[item.day_name] = item
+        })
+      }
       setWeekData(dataMap)
     } catch (error) {
       console.error('Erreur lors du chargement:', error)
@@ -110,15 +89,20 @@ export default function FoodTracker() {
   }
 
   const loadWeeksHistory = async () => {
+    if (!isClient) return
+    
     try {
       const history = await foodTrackerAPI.getWeeksHistory()
-      setWeeksHistory(history)
+      setWeeksHistory(history || [])
     } catch (error) {
       console.error('Erreur lors du chargement de l\'historique:', error)
+      setWeeksHistory([])
     }
   }
 
   const saveDayData = async (dayName, field, value) => {
+    if (!isClient) return
+    
     const dayData = weekData[dayName] || {
       week_start: currentWeek,
       day_name: dayName,
@@ -162,75 +146,50 @@ export default function FoodTracker() {
 
   // Fonction pour formater l'affichage de la semaine
   const getWeekDisplay = (weekString) => {
-    const date = new Date(weekString)
-    const endDate = new Date(date)
-    endDate.setDate(date.getDate() + 6)
-    return `Semaine du ${date.toLocaleDateString('fr-FR')} au ${endDate.toLocaleDateString('fr-FR')}`
+    try {
+      const date = new Date(weekString)
+      const endDate = new Date(date)
+      endDate.setDate(date.getDate() + 6)
+      return `Semaine du ${date.toLocaleDateString('fr-FR')} au ${endDate.toLocaleDateString('fr-FR')}`
+    } catch (error) {
+      return "Semaine en cours"
+    }
   }
 
   // Fonction pour générer le PDF avec jsPDF et html2canvas
   const generatePDF = async () => {
+    if (!isClient || !jsPDF || !html2canvas) {
+      alert('Fonction PDF non disponible')
+      return
+    }
+
     setGeneratingPDF(true)
     try {
-      // Créer un élément temporaire pour la capture
+      // Import dynamique pour éviter les erreurs de bundle
+      const { default: jsPDF } = await import('jspdf')
+      const { default: html2canvas } = await import('html2canvas')
+
+      // Le reste de votre code PDF ici...
       const element = document.createElement('div')
       element.style.position = 'absolute'
       element.style.left = '-9999px'
       element.style.top = '0'
-      element.style.width = '1000px' // Plus large pour accommoder les nouvelles colonnes
+      element.style.width = '1000px'
       element.style.backgroundColor = 'white'
       element.style.padding = '20px'
       
-      // Cloner et styliser le tableau pour le PDF
-      const originalTable = document.getElementById('food-tracker-table')
-      const tableClone = originalTable.cloneNode(true)
-      
-      // Appliquer des styles pour le PDF
-      tableClone.style.width = '100%'
-      tableClone.style.fontSize = '10px' // Plus petit pour accommoder plus de colonnes
-      tableClone.style.borderCollapse = 'collapse'
-      
-      // Styliser les cellules
-      const cells = tableClone.querySelectorAll('th, td')
-      cells.forEach(cell => {
-        cell.style.border = '1px solid #ddd'
-        cell.style.padding = '6px'
-        cell.style.textAlign = 'left'
-      })
-      
-      // Styliser les en-têtes
-      const headers = tableClone.querySelectorAll('th')
-      headers.forEach(header => {
-        header.style.backgroundColor = '#4a90e2'
-        header.style.color = 'white'
-        header.style.fontWeight = 'bold'
-      })
-      
-      // Créer le contenu HTML pour le PDF
-      element.innerHTML = `
-        <div style="text-align: center; margin-bottom: 20px; font-family: Arial, sans-serif;">
-          <h1 style="color: #333; margin-bottom: 10px; font-size: 20px;">Suivi Alimentaire de Joy Nathanaël</h1>
-          <h2 style="color: #666; margin-bottom: 5px; font-size: 16px;">${getWeekDisplay(currentWeek)}</h2>
-          <p style="color: #999; font-size: 12px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
-        </div>
-        ${tableClone.outerHTML}
-        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">
-          <p>Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
-        </div>
-      `
-      
+      // ... (gardez le reste du code PDF comme avant)
+
       document.body.appendChild(element)
       
-      // Capturer l'élément avec html2canvas
       const canvas = await html2canvas(element, {
-        scale: 2, // Meilleure qualité
+        scale: 2,
         useCORS: true,
         logging: false
       })
       
       const imgData = canvas.toDataURL('image/png')
       
-      // Créer le PDF en orientation paysage pour accommoder plus de colonnes
       const pdf = new jsPDF('l', 'mm', 'a4')
       const imgProps = pdf.getImageProperties(imgData)
       const pdfWidth = pdf.internal.pageSize.getWidth()
@@ -239,7 +198,6 @@ export default function FoodTracker() {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
       pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
       
-      // Nettoyer l'élément temporaire
       document.body.removeChild(element)
       
     } catch (error) {
@@ -258,8 +216,12 @@ export default function FoodTracker() {
     setCurrentWeek(newWeekString)
   }
 
+  if (!isClient) {
+    return <div className="loading">Chargement de l'application...</div>
+  }
+
   if (loading) {
-    return <div className="loading">Chargement...</div>
+    return <div className="loading">Chargement des données...</div>
   }
 
   return (
@@ -274,7 +236,7 @@ export default function FoodTracker() {
             ←
           </button>
           
-          <h2 style={{ margin: 0 }}>{getWeekDisplay(currentWeek)}</h2>
+          <h2 style={{ margin: 0, color: '#333' }}>{getWeekDisplay(currentWeek)}</h2>
           
           <button 
             className="btn" 
@@ -289,6 +251,7 @@ export default function FoodTracker() {
           <button 
             className="btn" 
             onClick={goToCurrentWeek}
+            style={{ backgroundColor: '#6c757d', color: 'white' }}
           >
             Cette semaine
           </button>
@@ -297,6 +260,7 @@ export default function FoodTracker() {
             className="btn btn-success" 
             onClick={generatePDF}
             disabled={generatingPDF}
+            style={{ backgroundColor: generatingPDF ? '#6c757d' : '#28a745', color: 'white' }}
           >
             {generatingPDF ? '⏳ Génération...' : '📄 Télécharger PDF'}
           </button>
@@ -305,6 +269,7 @@ export default function FoodTracker() {
             className="btn" 
             onClick={createNewWeek}
             title="Créer une nouvelle semaine"
+            style={{ backgroundColor: '#007bff', color: 'white' }}
           >
             + Nouvelle semaine
           </button>
@@ -312,15 +277,15 @@ export default function FoodTracker() {
       </div>
 
       {/* Sélecteur de semaine rapide */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label htmlFor="week-select">Aller à une semaine spécifique : </label>
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <label htmlFor="week-select" style={{ fontWeight: 'bold' }}>Aller à une semaine spécifique :</label>
         <select 
           id="week-select"
           value={currentWeek} 
           onChange={(e) => setCurrentWeek(e.target.value)}
-          style={{ marginLeft: '0.5rem' }}
+          style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
         >
-          {weeksHistory.map(week => (
+          {weeksHistory && weeksHistory.map(week => (
             <option key={week} value={week}>
               {getWeekDisplay(week)}
             </option>
@@ -329,7 +294,7 @@ export default function FoodTracker() {
         </select>
       </div>
 
-      <table id="food-tracker-table">
+      <table id="food-tracker-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <th>Jour</th>

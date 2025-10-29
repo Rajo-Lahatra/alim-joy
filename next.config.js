@@ -1,6 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuration vide car appDir est maintenant activé par défaut
+  // Désactiver le strict mode si nécessaire pour le développement
+  reactStrictMode: true,
+  // Configurer les en-têtes pour les assets
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
