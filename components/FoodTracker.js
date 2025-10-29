@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { foodTrackerAPI } from '../lib/supabase'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
-// Données statiques - toujours disponibles
 const daysOfWeek = [
   { name: "Lundi", order: 1 },
   { name: "Mardi", order: 2 },
@@ -53,70 +54,43 @@ export default function FoodTracker() {
   const [currentWeek, setCurrentWeek] = useState('')
   const [weekData, setWeekData] = useState({})
   const [loading, setLoading] = useState(false)
+  const [weeksHistory, setWeeksHistory] = useState([])
+  const [generatingPDF, setGeneratingPDF] = useState(false)
   const [isClient, setIsClient] = useState(false)
-const [supabaseStatus, setSupabaseStatus] = useState('idle') // 'idle', 'loading', 'success', 'error'
-const saveWeekToSupabase = async () => {
-    setSupabaseStatus('loading')
-    try {
-      const success = await foodTrackerAPI.saveWeek(weekData, currentWeek)
-      if (success) {
-        setSupabaseStatus('success')
-        setTimeout(() => setSupabaseStatus('idle'), 3000) // Reset après 3 secondes
-      } else {
-        setSupabaseStatus('error')
-      }
-    } catch (error) {
-      console.error('Erreur sauvegarde Supabase:', error)
-      setSupabaseStatus('error')
-    }
+  const [supabaseStatus, setSupabaseStatus] = useState('idle')
+  const [weekExistsInSupabase, setWeekExistsInSupabase] = useState(false)
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Fonction pour obtenir le lundi d'une semaine
+  const getMonday = (date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    return new Date(d.setDate(diff)).toISOString().split('T')[0]
   }
 
-  // Fonction pour charger la semaine depuis Supabase
-  const loadWeekFromSupabase = async () => {
-    setSupabaseStatus('loading')
-    try {
-      const data = await foodTrackerAPI.loadWeek(currentWeek)
-      if (data) {
-        setWeekData(data)
-        saveToLocalStorage(data)
-        setSupabaseStatus('success')
-        setTimeout(() => setSupabaseStatus('idle'), 3000)
-      } else {
-        setSupabaseStatus('error')
-        alert('Aucune donnée trouvée pour cette semaine sur Supabase')
-      }
-    } catch (error) {
-      console.error('Erreur chargement Supabase:', error)
-      setSupabaseStatus('error')
+  // Initialiser la semaine courante
+  useEffect(() => {
+    if (isClient) {
+      const today = new Date()
+      const weekString = getMonday(today)
+      setCurrentWeek(weekString)
     }
-  }
+  }, [isClient])
 
-  // Fonction pour réinitialiser la semaine sur Supabase
-  const resetWeekInSupabase = async () => {
-    if (!confirm('Êtes-vous sûr de vouloir réinitialiser cette semaine sur Supabase ? Cette action supprimera définitivement les données.')) {
-      return
+  // Charger les données de la semaine
+  useEffect(() => {
+    if (currentWeek && isClient) {
+      loadWeekData()
+      checkWeekExists(currentWeek)
     }
+  }, [currentWeek, isClient])
 
-    setSupabaseStatus('loading')
-    try {
-      const success = await foodTrackerAPI.resetWeek(currentWeek)
-      if (success) {
-        // Réinitialiser aussi le localStorage
-        const emptyData = createEmptyWeekData()
-        setWeekData(emptyData)
-        saveToLocalStorage(emptyData)
-        setSupabaseStatus('success')
-        setTimeout(() => setSupabaseStatus('idle'), 3000)
-      } else {
-        setSupabaseStatus('error')
-      }
-    } catch (error) {
-      console.error('Erreur réinitialisation Supabase:', error)
-      setSupabaseStatus('error')
-    }
-  }
-
-  // Fonction utilitaire pour créer des données vides
+  // Fonction pour créer des données vides
   const createEmptyWeekData = () => {
     const emptyData = {}
     daysOfWeek.forEach(day => {
@@ -133,29 +107,46 @@ const saveWeekToSupabase = async () => {
     return emptyData
   }
 
-  // S'assurer que nous sommes côté client
-  useEffect(() => {
-    setIsClient(true)
-    initializeWeek()
-    if (isClient && currentWeek) {
-      loadWeekFromSupabase().catch(console.error)
+  // Vérifier si la semaine existe dans Supabase
+  const checkWeekExists = async (week) => {
+    try {
+      const exists = await foodTrackerAPI.weekExists(week)
+      setWeekExistsInSupabase(exists)
+      return exists
+    } catch (error) {
+      console.error('Erreur vérification semaine:', error)
+      setWeekExistsInSupabase(false)
+      return false
     }
-  }, [currentWeek, isClient])
-
-  const initializeWeek = () => {
-    const today = new Date()
-    const monday = getMonday(today)
-    setCurrentWeek(monday)
-    
-    // Charger les données depuis localStorage
-    loadFromLocalStorage(monday)
   }
 
-  const getMonday = (date) => {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(d.setDate(diff)).toISOString().split('T')[0]
+  // Charger la semaine - sans message d'erreur si pas de données
+  const loadWeekData = async () => {
+    if (!isClient) return
+    
+    setLoading(true)
+    try {
+      const data = await foodTrackerAPI.loadWeek(currentWeek)
+      
+      if (data) {
+        // Données trouvées dans Supabase
+        setWeekData(data)
+        saveToLocalStorage(data)
+        setWeekExistsInSupabase(true)
+      } else {
+        // Aucune donnée - créer une semaine vide (planification)
+        const emptyData = createEmptyWeekData()
+        setWeekData(emptyData)
+        saveToLocalStorage(emptyData)
+        setWeekExistsInSupabase(false)
+      }
+    } catch (error) {
+      console.error('Erreur chargement:', error)
+      // En cas d'erreur, charger depuis le localStorage
+      loadFromLocalStorage(currentWeek)
+      setWeekExistsInSupabase(false)
+    }
+    setLoading(false)
   }
 
   const loadFromLocalStorage = (week) => {
@@ -165,22 +156,13 @@ const saveWeekToSupabase = async () => {
         setWeekData(JSON.parse(saved))
       } else {
         // Créer des données vides
-        const emptyData = {}
-        daysOfWeek.forEach(day => {
-          emptyData[day.name] = {
-            morning: '',
-            vegetable: '',
-            protein: '',
-            fruit_lunch: '',
-            snack: '',
-            evening: '',
-            remarks: ''
-          }
-        })
+        const emptyData = createEmptyWeekData()
         setWeekData(emptyData)
       }
     } catch (error) {
-      console.log('Aucune donnée sauvegardée')
+      console.log('Aucune donnée sauvegardée en local')
+      const emptyData = createEmptyWeekData()
+      setWeekData(emptyData)
     }
   }
 
@@ -215,16 +197,15 @@ const saveWeekToSupabase = async () => {
     newDate.setDate(currentDate.getDate() + (direction * 7))
     const newWeek = getMonday(newDate)
     setCurrentWeek(newWeek)
-    loadFromLocalStorage(newWeek)
   }
 
   const goToCurrentWeek = () => {
     const today = new Date()
     const week = getMonday(today)
     setCurrentWeek(week)
-    loadFromLocalStorage(week)
   }
 
+  // Fonction pour formater l'affichage de la semaine
   const getWeekDisplay = (weekString) => {
     try {
       const date = new Date(weekString)
@@ -236,38 +217,164 @@ const saveWeekToSupabase = async () => {
     }
   }
 
-  const generatePDF = () => {
-    // Simple impression pour commencer
-    window.print()
+  // Fonction pour sauvegarder la semaine
+  const saveWeekToSupabase = async () => {
+    setSupabaseStatus('loading')
+    try {
+      const success = await foodTrackerAPI.saveWeek(weekData, currentWeek)
+      if (success) {
+        setSupabaseStatus('success')
+        setWeekExistsInSupabase(true)
+        setTimeout(() => setSupabaseStatus('idle'), 3000)
+      } else {
+        setSupabaseStatus('error')
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde Supabase:', error)
+      setSupabaseStatus('error')
+    }
   }
 
+  // Fonction pour réinitialiser la semaine
+  const resetWeekInSupabase = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir réinitialiser cette semaine ? Cette action supprimera définitivement les données sur Supabase.')) {
+      return
+    }
+
+    setSupabaseStatus('loading')
+    try {
+      const success = await foodTrackerAPI.resetWeek(currentWeek)
+      if (success) {
+        // Réinitialiser les données locales
+        const emptyData = createEmptyWeekData()
+        setWeekData(emptyData)
+        saveToLocalStorage(emptyData)
+        setWeekExistsInSupabase(false)
+        setSupabaseStatus('success')
+        setTimeout(() => setSupabaseStatus('idle'), 3000)
+      } else {
+        setSupabaseStatus('error')
+      }
+    } catch (error) {
+      console.error('Erreur réinitialisation Supabase:', error)
+      setSupabaseStatus('error')
+    }
+  }
+
+  // Fonction pour générer le PDF avec jsPDF et html2canvas
+  const generatePDF = async () => {
+    setGeneratingPDF(true)
+    try {
+      // Import dynamique pour éviter les erreurs de bundle
+      const { default: jsPDF } = await import('jspdf')
+      const { default: html2canvas } = await import('html2canvas')
+
+      // Créer un élément temporaire pour la capture
+      const element = document.createElement('div')
+      element.style.position = 'absolute'
+      element.style.left = '-9999px'
+      element.style.top = '0'
+      element.style.width = '1200px'
+      element.style.backgroundColor = 'white'
+      element.style.padding = '20px'
+      element.style.fontFamily = 'Arial, sans-serif'
+      
+      // Créer le contenu HTML pour le PDF
+      element.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h1 style="color: #333; margin-bottom: 10px; font-size: 24px;">Suivi Alimentaire de Joy Nathanaël</h1>
+          <h2 style="color: #666; margin-bottom: 5px; font-size: 18px;">${getWeekDisplay(currentWeek)}</h2>
+          <p style="color: #999; font-size: 14px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead>
+            <tr>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Jour</th>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Matin</th>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Midi</th>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Goûter (16h)</th>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Soir</th>
+              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Remarques</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${daysOfWeek.map(day => {
+              const dayData = weekData[day.name] || {}
+              return `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${day.name}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.morning || ''}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">
+                    ${dayData.vegetable ? `<div><strong>Légume:</strong> ${dayData.vegetable}</div>` : ''}
+                    ${dayData.protein ? `<div><strong>Protéine:</strong> ${dayData.protein}</div>` : ''}
+                    ${dayData.fruit_lunch ? `<div><strong>Fruit:</strong> ${dayData.fruit_lunch}</div>` : ''}
+                  </td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.snack || ''}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.evening || ''}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.remarks || ''}</td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666;">
+          <p>Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+        </div>
+      `
+      
+      document.body.appendChild(element)
+      
+      // Capturer l'élément avec html2canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      })
+      
+      const imgData = canvas.toDataURL('image/png')
+      
+      // Créer le PDF en orientation paysage
+      const pdf = new jsPDF('l', 'mm', 'a4')
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
+      
+      // Nettoyer l'élément temporaire
+      document.body.removeChild(element)
+      
+    } catch (error) {
+      console.error('Erreur lors de la génération du PDF:', error)
+      alert('Erreur lors de la génération du PDF')
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  // Fonction pour créer une nouvelle semaine
   const createNewWeek = () => {
     const nextWeek = new Date(currentWeek)
     nextWeek.setDate(nextWeek.getDate() + 7)
     const newWeek = getMonday(nextWeek)
     setCurrentWeek(newWeek)
-    
-    // Créer de nouvelles données vides
-    const emptyData = {}
-    daysOfWeek.forEach(day => {
-      emptyData[day.name] = {
-        morning: '',
-        vegetable: '',
-        protein: '',
-        fruit_lunch: '',
-        snack: '',
-        evening: '',
-        remarks: ''
-      }
-    })
-    setWeekData(emptyData)
-    saveToLocalStorage(emptyData)
   }
 
   if (!isClient) {
     return (
       <div className="card">
         <div className="loading">Chargement de l'application...</div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="card">
+        <div className="loading">Chargement des données...</div>
       </div>
     )
   }
@@ -296,7 +403,12 @@ const saveWeekToSupabase = async () => {
             ← Précédente
           </button>
           
-          <h2 style={{ margin: 0, color: '#333' }}>{getWeekDisplay(currentWeek)}</h2>
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ margin: 0, color: '#333' }}>{getWeekDisplay(currentWeek)}</h2>
+            <div style={{ fontSize: '0.9rem', color: weekExistsInSupabase ? '#28a745' : '#6c757d' }}>
+              {weekExistsInSupabase ? '✅ Sauvegardée sur Supabase' : '📝 Semaine en planification'}
+            </div>
+          </div>
           
           <button 
             className="btn" 
@@ -320,9 +432,15 @@ const saveWeekToSupabase = async () => {
           <button 
             className="btn btn-success" 
             onClick={generatePDF}
-            style={{ backgroundColor: '#28a745', color: 'white', padding: '0.5rem 1rem' }}
+            disabled={generatingPDF}
+            style={{ 
+              backgroundColor: generatingPDF ? '#6c757d' : '#28a745', 
+              color: 'white', 
+              padding: '0.5rem 1rem',
+              opacity: generatingPDF ? 0.6 : 1
+            }}
           >
-            📄 Télécharger PDF
+            {generatingPDF ? '⏳ Génération...' : '📄 Télécharger PDF'}
           </button>
           
           <button 
@@ -333,7 +451,22 @@ const saveWeekToSupabase = async () => {
           >
             + Nouvelle semaine
           </button>
-          <button 
+        </div>
+      </div>
+
+      {/* Section Supabase - Sauvegarde/Réinitialisation */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '1rem', 
+        marginBottom: '1rem',
+        flexWrap: 'wrap',
+        padding: '1rem',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef'
+      }}>
+        <button 
           className="btn btn-success" 
           onClick={saveWeekToSupabase}
           disabled={supabaseStatus === 'loading'}
@@ -348,31 +481,19 @@ const saveWeekToSupabase = async () => {
            supabaseStatus === 'error' ? '❌ Erreur' : '💾 Sauvegarder sur Supabase'}
         </button>
 
-        <button 
-          className="btn" 
-          onClick={loadWeekFromSupabase}
-          disabled={supabaseStatus === 'loading'}
-          style={{ 
-            backgroundColor: '#17a2b8',
-            color: 'white',
-            opacity: supabaseStatus === 'loading' ? 0.6 : 1
-          }}
-        >
-          {supabaseStatus === 'loading' ? '⏳ Chargement...' : '📥 Charger depuis Supabase'}
-        </button>
-
-        <button 
-          className="btn btn-danger" 
-          onClick={resetWeekInSupabase}
-          disabled={supabaseStatus === 'loading'}
-          style={{ opacity: supabaseStatus === 'loading' ? 0.6 : 1 }}
-        >
-          {supabaseStatus === 'loading' ? '⏳ Réinitialisation...' : '🗑️ Réinitialiser la semaine'}
-        </button>
-      
-        </div>
+        {weekExistsInSupabase && (
+          <button 
+            className="btn btn-danger" 
+            onClick={resetWeekInSupabase}
+            disabled={supabaseStatus === 'loading'}
+            style={{ opacity: supabaseStatus === 'loading' ? 0.6 : 1 }}
+          >
+            {supabaseStatus === 'loading' ? '⏳ Réinitialisation...' : '🗑️ Supprimer de Supabase'}
+          </button>
+        )}
       </div>
-{/* Indicateur de statut Supabase */}
+
+      {/* Indicateur de statut */}
       {supabaseStatus === 'error' && (
         <div style={{
           backgroundColor: '#f8d7da',
@@ -386,9 +507,10 @@ const saveWeekToSupabase = async () => {
           ❌ Erreur de connexion à Supabase. Vérifiez votre connexion internet.
         </div>
       )}
+
       {/* Tableau COMPLET avec toutes les colonnes */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
           <thead>
             <tr>
               <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Jour</th>
@@ -517,12 +639,15 @@ const saveWeekToSupabase = async () => {
         fontSize: '0.9rem',
         borderLeft: '4px solid #4a90e2'
       }}>
-        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Informations importantes :</h4>
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Mode Planification 🗓️</h4>
+        <p style={{ marginBottom: '0.5rem' }}>
+          <strong>Vous pouvez maintenant planifier les semaines à venir !</strong>
+        </p>
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li><strong>Allaitement</strong> : 5-6 tétées par jour à la demande, terminer par la tétée si elle complète un repas solide</li>
-          <li><strong>Légumes</strong> : Cuits sans sel, avec 1 c.à.c d'huile végétale (colza, noix, olive) ou beurre</li>
-          <li><strong>Viandes/poissons</strong> : 10g (2 c.à.c), éviter abats et charcuterie (sauf jambon cuit découenné)</li>
-          <li><strong>Fruits</strong> : Bien mûrs, crus ou cuits, sans sucre ajouté</li>
+          <li>Utilisez les flèches pour naviguer entre les semaines</li>
+          <li>Planifiez les repas des semaines futures</li>
+          <li>Sauvegardez sur Supabase pour ne pas perdre vos planning</li>
+          <li>Le bouton "Supprimer" n'apparaît que pour les semaines sauvegardées</li>
         </ul>
       </div>
     </div>
