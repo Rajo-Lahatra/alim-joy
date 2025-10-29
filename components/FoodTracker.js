@@ -261,120 +261,87 @@ export default function FoodTracker() {
     }
   }
 
-// Fonction pour générer le PDF avec ajustement automatique de la taille
-const generatePDF = async () => {
+// Fonction pour générer le PDF avec création native du tableau
+const generatePDFNative = async () => {
   setGeneratingPDF(true)
   try {
     const { default: jsPDF } = await import('jspdf')
-    const { default: html2canvas } = await import('html2canvas')
-
-    // Créer un élément temporaire optimisé pour le PDF
-    const element = document.createElement('div')
-    element.style.position = 'absolute'
-    element.style.left = '-9999px'
-    element.style.top = '0'
-    element.style.backgroundColor = 'white'
-    element.style.fontFamily = 'Arial, sans-serif'
-    element.style.padding = '10px'
-
-    // Cloner et optimiser le tableau
-    const originalTable = document.querySelector('table')
-    const tableClone = originalTable.cloneNode(true)
     
-    // Optimisations pour le PDF
-    tableClone.style.width = 'auto'
-    tableClone.style.minWidth = 'auto'
-    tableClone.style.fontSize = '8px' // Police plus petite
-    tableClone.style.borderCollapse = 'collapse'
-    tableClone.style.tableLayout = 'auto'
-
-    // Optimiser les cellules
-    const cells = tableClone.querySelectorAll('th, td')
-    cells.forEach(cell => {
-      cell.style.border = '1px solid #333'
-      cell.style.padding = '3px 2px' // Padding réduit
-      cell.style.textAlign = 'left'
-      cell.style.whiteSpace = 'nowrap'
-      cell.style.overflow = 'hidden'
-      cell.style.textOverflow = 'ellipsis'
-      cell.style.maxWidth = '120px' // Largeur max pour les cellules
-    })
-
-    // Optimiser les en-têtes
-    const headers = tableClone.querySelectorAll('th')
-    headers.forEach(header => {
-      header.style.backgroundColor = '#4a90e2'
-      header.style.color = 'white'
-      header.style.fontWeight = 'bold'
-      header.style.fontSize = '9px'
-    })
-
-    // Spécifiquement pour la colonne Remarques - lui donner plus d'espace
-    const remarksCells = tableClone.querySelectorAll('td:last-child')
-    remarksCells.forEach(cell => {
-      cell.style.whiteSpace = 'normal' // Permettre le retour à la ligne
-      cell.style.maxWidth = '200px'
-      cell.style.minWidth = '150px'
-    })
-
-    // Créer le contenu optimisé
-    element.innerHTML = `
-      <div style="text-align: center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
-        <h3 style="margin: 0; color: #333; font-size: 14px;">SUIVI ALIMENTAIRE - JOY NATHANAËL</h3>
-        <p style="margin: 2px 0 0 0; color: #666; font-size: 10px;">${getWeekDisplay(currentWeek)}</p>
-      </div>
-      ${tableClone.outerHTML}
-      <div style="margin-top: 10px; text-align: center; font-size: 8px; color: #999;">
-        Généré le ${new Date().toLocaleDateString('fr-FR')}
-      </div>
-    `
-
-    document.body.appendChild(element)
-
-    // Ajuster dynamiquement la largeur de l'élément
-    const tableWidth = tableClone.scrollWidth
-    element.style.width = `${Math.min(tableWidth + 40, 1500)}px` // Limiter à 1500px max
-
-    // Capturer avec une échelle adaptative
-    const scale = Math.min(1.5, 1200 / element.scrollWidth) // Ajuster l'échelle selon la largeur
-    
-    const canvas = await html2canvas(element, {
-      scale: scale,
-      useCORS: true,
-      logging: false,
-      width: element.scrollWidth,
-      height: element.scrollHeight,
-      scrollX: 0,
-      scrollY: 0
-    })
-
-    const imgData = canvas.toDataURL('image/png')
-    
-    // Créer le PDF en paysage avec marges
+    // Créer le PDF en paysage
     const pdf = new jsPDF('l', 'mm', 'a4')
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
     
-    const imgProps = pdf.getImageProperties(imgData)
-    const imgWidth = pageWidth - 20 // Marge de 10mm de chaque côté
-    const imgHeight = (imgProps.height * imgWidth) / imgProps.width
+    // En-tête
+    pdf.setFontSize(16)
+    pdf.setTextColor(40, 40, 40)
+    pdf.text('SUIVI ALIMENTAIRE - JOY NATHANAËL', pageWidth / 2, 15, { align: 'center' })
     
-    // Vérifier si l'image dépasse la hauteur de la page
-    if (imgHeight > pageHeight - 20) {
-      // Ajuster pour tenir dans la page
-      const adjustedHeight = pageHeight - 20
-      const adjustedWidth = (imgProps.width * adjustedHeight) / imgProps.height
-      pdf.addImage(imgData, 'PNG', 10, 10, adjustedWidth, adjustedHeight)
-    } else {
-      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight)
-    }
+    pdf.setFontSize(10)
+    pdf.setTextColor(100, 100, 100)
+    pdf.text(getWeekDisplay(currentWeek), pageWidth / 2, 22, { align: 'center' })
+    
+    // Configuration du tableau
+    const margin = 10
+    const tableTop = 30
+    const rowHeight = 8
+    const colWidths = [25, 45, 55, 40, 45, 60] // Largeurs des colonnes ajustées
+    
+    // En-têtes du tableau
+    const headers = ['Jour', 'Matin', 'Midi', 'Goûter', 'Soir', 'Remarques']
+    
+    pdf.setFillColor(74, 144, 226)
+    pdf.setTextColor(255, 255, 255)
+    pdf.setFont(undefined, 'bold')
+    
+    let xPos = margin
+    headers.forEach((header, index) => {
+      pdf.rect(xPos, tableTop, colWidths[index], rowHeight, 'F')
+      pdf.text(header, xPos + 2, tableTop + 5)
+      xPos += colWidths[index]
+    })
+    
+    // Données du tableau
+    pdf.setTextColor(0, 0, 0)
+    pdf.setFont(undefined, 'normal')
+    pdf.setFontSize(8)
+    
+    daysOfWeek.forEach((day, rowIndex) => {
+      const dayData = weekData[day.name] || {}
+      const rowY = tableTop + (rowIndex + 1) * rowHeight
+      
+      const rowData = [
+        day.name,
+        dayData.morning || '',
+        `${dayData.vegetable ? `Lég: ${dayData.vegetable}` : ''}\n${dayData.protein ? `Prot: ${dayData.protein}` : ''}\n${dayData.fruit_lunch ? `Fruit: ${dayData.fruit_lunch}` : ''}`,
+        dayData.snack || '',
+        dayData.evening || '',
+        dayData.remarks || ''
+      ]
+      
+      xPos = margin
+      rowData.forEach((cell, colIndex) => {
+        // Dessiner la cellule
+        pdf.rect(xPos, rowY, colWidths[colIndex], rowHeight)
+        
+        // Ajuster le texte pour qu'il tienne dans la cellule
+        const lines = pdf.splitTextToSize(cell, colWidths[colIndex] - 4)
+        pdf.text(lines, xPos + 2, rowY + 3)
+        
+        xPos += colWidths[colIndex]
+      })
+    })
+    
+    // Pied de page
+    pdf.setFontSize(7)
+    pdf.setTextColor(150, 150, 150)
+    pdf.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, pageHeight - 10, { align: 'right' })
     
     pdf.save(`suivi-${currentWeek}.pdf`)
-    document.body.removeChild(element)
     
   } catch (error) {
     console.error('Erreur lors de la génération du PDF:', error)
-    alert('Erreur lors de la génération du PDF. Essayez de réduire la taille du texte dans les remarques.')
+    alert('Erreur lors de la génération du PDF')
   } finally {
     setGeneratingPDF(false)
   }
