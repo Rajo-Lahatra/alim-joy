@@ -1,25 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  // Forcer le re-rendu côté client
+  // Désactiver le rendu statique pour les pages dynamiques
+  output: 'standalone',
+  // Ou utiliser 'export' si vous voulez un site statique
+  // output: 'export',
+  trailingSlash: true,
+  images: {
+    unoptimized: true
+  },
+  // Désactiver les optimisations qui peuvent causer des problèmes
   experimental: {
     esmExternals: 'loose'
   },
-  // Désactiver la minimisation pour le débogage
-  swcMinify: false,
-  // Configurer les en-têtes
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
-          },
-        ],
-      },
-    ]
+  // Ignorer les erreurs de dépendance pendant le build
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+    };
+    return config;
   },
 }
 
