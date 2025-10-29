@@ -261,62 +261,58 @@ export default function FoodTracker() {
     }
   }
 
-  // Fonction pour générer le PDF avec jsPDF et html2canvas
-  // Fonction pour générer le PDF avec jsPDF et html2canvas
+// Fonction pour générer le PDF avec jsPDF et html2canvas
 const generatePDF = async () => {
   setGeneratingPDF(true)
   try {
-    // Import dynamique pour éviter les erreurs de bundle
     const { default: jsPDF } = await import('jspdf')
     const { default: html2canvas } = await import('html2canvas')
 
-    // Créer un élément temporaire pour la capture
     const element = document.createElement('div')
     element.style.position = 'absolute'
     element.style.left = '-9999px'
     element.style.top = '0'
     element.style.width = '1000px'
     element.style.backgroundColor = 'white'
-    element.style.padding = '20px'
+    element.style.padding = '15px'
     element.style.fontFamily = 'Arial, sans-serif'
     
     // Cloner le tableau
     const originalTable = document.querySelector('table')
     const tableClone = originalTable.cloneNode(true)
     
-    // Appliquer des styles pour le PDF
+    // Styles minimalistes pour le PDF
     tableClone.style.width = '100%'
-    tableClone.style.fontSize = '10px'
+    tableClone.style.fontSize = '9px'
     tableClone.style.borderCollapse = 'collapse'
     
-    // Styliser les cellules
+    // Styles des cellules
     const cells = tableClone.querySelectorAll('th, td')
     cells.forEach(cell => {
-      cell.style.border = '1px solid #ddd'
-      cell.style.padding = '6px'
+      cell.style.border = '1px solid #333'
+      cell.style.padding = '4px'
       cell.style.textAlign = 'left'
     })
     
-    // Styliser les en-têtes
+    // Styles des en-têtes
     const headers = tableClone.querySelectorAll('th')
     headers.forEach(header => {
-      header.style.backgroundColor = '#4a90e2'
+      header.style.backgroundColor = '#333'
       header.style.color = 'white'
       header.style.fontWeight = 'bold'
     })
     
-    // Créer le contenu HTML minimal pour le PDF
+    // Contenu minimal
     element.innerHTML = `
-      <div style="text-align: center; margin-bottom: 15px;">
-        <h2 style="color: #333; margin: 0 0 5px 0; font-size: 18px;">Suivi Alimentaire - ${getWeekDisplay(currentWeek)}</h2>
-        <p style="color: #666; margin: 0; font-size: 12px;">Joy Nathanaël - Dr AIDIBE KADRA Sarah</p>
+      <div style="text-align: center; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">
+        <h3 style="margin: 0; color: #333; font-size: 14px;">SUIVI ALIMENTAIRE</h3>
+        <p style="margin: 2px 0 0 0; color: #666; font-size: 10px;">${getWeekDisplay(currentWeek)}</p>
       </div>
       ${tableClone.outerHTML}
     `
     
     document.body.appendChild(element)
     
-    // Capturer l'élément avec html2canvas
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
@@ -325,16 +321,14 @@ const generatePDF = async () => {
     
     const imgData = canvas.toDataURL('image/png')
     
-    // Créer le PDF en orientation paysage
     const pdf = new jsPDF('l', 'mm', 'a4')
     const imgProps = pdf.getImageProperties(imgData)
     const pdfWidth = pdf.internal.pageSize.getWidth()
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
     
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-    pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
+    pdf.save(`suivi-${currentWeek}.pdf`)
     
-    // Nettoyer l'élément temporaire
     document.body.removeChild(element)
     
   } catch (error) {
