@@ -281,3 +281,47 @@ textarea {
     justify-content: center;
   }
 }
+/* Styles pour l'impression */
+@media print {
+  /* Cacher les éléments non nécessaires à l'impression */
+  header, .footer, .btn, .week-actions, .tab-container {
+    display: none !important;
+  }
+
+  /* Ajuster la mise en page pour l'impression */
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    margin: 0 !important;
+    padding: 10px !important;
+  }
+
+  /* Optimiser le tableau pour l'impression */
+  table {
+    width: 100% !important;
+    font-size: 10px !important;
+  }
+
+  th, td {
+    padding: 6px !important;
+  }
+
+  /* Assurer un bon contraste */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+
+  /* Forcer l'impression en paysage */
+  @page {
+    size: landscape;
+    margin: 0.5cm;
+  }
+}

@@ -1,8 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { foodTrackerAPI } from '../lib/supabase'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 const daysOfWeek = [
   { name: "Lundi", order: 1 },
@@ -55,7 +53,6 @@ export default function FoodTracker() {
   const [weekData, setWeekData] = useState({})
   const [loading, setLoading] = useState(false)
   const [weeksHistory, setWeeksHistory] = useState([])
-  const [generatingPDF, setGeneratingPDF] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [supabaseStatus, setSupabaseStatus] = useState('idle')
   const [weekExistsInSupabase, setWeekExistsInSupabase] = useState(false)
@@ -261,91 +258,10 @@ export default function FoodTracker() {
     }
   }
 
-// Fonction pour générer le PDF avec création native du tableau
-const generatePDFNative = async () => {
-  setGeneratingPDF(true)
-  try {
-    const { default: jsPDF } = await import('jspdf')
-    
-    // Créer le PDF en paysage
-    const pdf = new jsPDF('l', 'mm', 'a4')
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    
-    // En-tête
-    pdf.setFontSize(16)
-    pdf.setTextColor(40, 40, 40)
-    pdf.text('SUIVI ALIMENTAIRE - JOY NATHANAËL', pageWidth / 2, 15, { align: 'center' })
-    
-    pdf.setFontSize(10)
-    pdf.setTextColor(100, 100, 100)
-    pdf.text(getWeekDisplay(currentWeek), pageWidth / 2, 22, { align: 'center' })
-    
-    // Configuration du tableau
-    const margin = 10
-    const tableTop = 30
-    const rowHeight = 8
-    const colWidths = [25, 45, 55, 40, 45, 60] // Largeurs des colonnes ajustées
-    
-    // En-têtes du tableau
-    const headers = ['Jour', 'Matin', 'Midi', 'Goûter', 'Soir', 'Remarques']
-    
-    pdf.setFillColor(74, 144, 226)
-    pdf.setTextColor(255, 255, 255)
-    pdf.setFont(undefined, 'bold')
-    
-    let xPos = margin
-    headers.forEach((header, index) => {
-      pdf.rect(xPos, tableTop, colWidths[index], rowHeight, 'F')
-      pdf.text(header, xPos + 2, tableTop + 5)
-      xPos += colWidths[index]
-    })
-    
-    // Données du tableau
-    pdf.setTextColor(0, 0, 0)
-    pdf.setFont(undefined, 'normal')
-    pdf.setFontSize(8)
-    
-    daysOfWeek.forEach((day, rowIndex) => {
-      const dayData = weekData[day.name] || {}
-      const rowY = tableTop + (rowIndex + 1) * rowHeight
-      
-      const rowData = [
-        day.name,
-        dayData.morning || '',
-        `${dayData.vegetable ? `Lég: ${dayData.vegetable}` : ''}\n${dayData.protein ? `Prot: ${dayData.protein}` : ''}\n${dayData.fruit_lunch ? `Fruit: ${dayData.fruit_lunch}` : ''}`,
-        dayData.snack || '',
-        dayData.evening || '',
-        dayData.remarks || ''
-      ]
-      
-      xPos = margin
-      rowData.forEach((cell, colIndex) => {
-        // Dessiner la cellule
-        pdf.rect(xPos, rowY, colWidths[colIndex], rowHeight)
-        
-        // Ajuster le texte pour qu'il tienne dans la cellule
-        const lines = pdf.splitTextToSize(cell, colWidths[colIndex] - 4)
-        pdf.text(lines, xPos + 2, rowY + 3)
-        
-        xPos += colWidths[colIndex]
-      })
-    })
-    
-    // Pied de page
-    pdf.setFontSize(7)
-    pdf.setTextColor(150, 150, 150)
-    pdf.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - margin, pageHeight - 10, { align: 'right' })
-    
-    pdf.save(`suivi-${currentWeek}.pdf`)
-    
-  } catch (error) {
-    console.error('Erreur lors de la génération du PDF:', error)
-    alert('Erreur lors de la génération du PDF')
-  } finally {
-    setGeneratingPDF(false)
+  // Fonction SIMPLE pour générer le PDF - Impression de toute la page
+  const generatePDF = () => {
+    window.print()
   }
-}
 
   // Fonction pour créer une nouvelle semaine
   const createNewWeek = () => {
@@ -424,15 +340,9 @@ const generatePDFNative = async () => {
           <button 
             className="btn btn-success" 
             onClick={generatePDF}
-            disabled={generatingPDF}
-            style={{ 
-              backgroundColor: generatingPDF ? '#6c757d' : '#28a745', 
-              color: 'white', 
-              padding: '0.5rem 1rem',
-              opacity: generatingPDF ? 0.6 : 1
-            }}
+            style={{ backgroundColor: '#28a745', color: 'white', padding: '0.5rem 1rem' }}
           >
-            {generatingPDF ? '⏳ Génération...' : '📄 Télécharger PDF'}
+            📄 Imprimer/PDF
           </button>
           
           <button 
@@ -638,6 +548,7 @@ const generatePDFNative = async () => {
           <li><strong>Fruits</strong> : Bien mûrs, crus ou cuits, sans sucre ajouté</li>
         </ul>
       </div>
+
       {/* Informations importantes */}
       <div style={{ 
         marginTop: '1rem', 
@@ -647,7 +558,7 @@ const generatePDFNative = async () => {
         fontSize: '0.9rem',
         borderLeft: '4px solid #4a90e2'
       }}>
-        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Instructions pour le Mode Planification 🗓️</h4>
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Mode Planification 🗓️</h4>
         <p style={{ marginBottom: '0.5rem' }}>
           <strong>Vous pouvez maintenant planifier les semaines à venir !</strong>
         </p>
