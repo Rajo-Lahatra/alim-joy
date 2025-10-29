@@ -2,6 +2,7 @@
 import Header from '../components/Header'
 import FoodTracker from '../components/FoodTracker'
 import Recommendations from '../components/Recommendations'
+import TestComponent from '../components/TestComponent'
 
 export default function Home() {
   return (
@@ -9,6 +10,7 @@ export default function Home() {
       <Header />
       
       <div className="container">
+        <TestComponent />
         <FoodTracker />
         <Recommendations />
       </div>

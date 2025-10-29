@@ -1,16 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Désactiver le strict mode si nécessaire pour le développement
   reactStrictMode: true,
-  // Configurer les en-têtes pour les assets
+  // Forcer le re-rendu côté client
+  experimental: {
+    esmExternals: 'loose'
+  },
+  // Désactiver la minimisation pour le débogage
+  swcMinify: false,
+  // Configurer les en-têtes
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
           },
         ],
       },
