@@ -262,7 +262,8 @@ export default function FoodTracker() {
   }
 
 // Fonction pour générer le PDF avec jsPDF et html2canvas
-const generatePDF = async () => {
+// Fonction pour générer le PDF avec différents styles
+const generatePDF = async (style = 'minimal') => {
   setGeneratingPDF(true)
   try {
     const { default: jsPDF } = await import('jspdf')
@@ -274,43 +275,68 @@ const generatePDF = async () => {
     element.style.top = '0'
     element.style.width = '1000px'
     element.style.backgroundColor = 'white'
-    element.style.padding = '15px'
+    element.style.padding = style === 'minimal' ? '10px' : '20px'
     element.style.fontFamily = 'Arial, sans-serif'
     
-    // Cloner le tableau
     const originalTable = document.querySelector('table')
     const tableClone = originalTable.cloneNode(true)
     
-    // Styles minimalistes pour le PDF
+    // Configuration selon le style choisi
+    const styles = {
+      minimal: {
+        tableFontSize: '9px',
+        cellPadding: '4px',
+        headerBg: '#333',
+        borderColor: '#333'
+      },
+      professional: {
+        tableFontSize: '10px',
+        cellPadding: '6px',
+        headerBg: '#4a90e2',
+        borderColor: '#ddd'
+      }
+    }
+    
+    const currentStyle = styles[style] || styles.minimal
+    
     tableClone.style.width = '100%'
-    tableClone.style.fontSize = '9px'
+    tableClone.style.fontSize = currentStyle.tableFontSize
     tableClone.style.borderCollapse = 'collapse'
     
-    // Styles des cellules
     const cells = tableClone.querySelectorAll('th, td')
     cells.forEach(cell => {
-      cell.style.border = '1px solid #333'
-      cell.style.padding = '4px'
+      cell.style.border = `1px solid ${currentStyle.borderColor}`
+      cell.style.padding = currentStyle.cellPadding
       cell.style.textAlign = 'left'
     })
     
-    // Styles des en-têtes
     const headers = tableClone.querySelectorAll('th')
     headers.forEach(header => {
-      header.style.backgroundColor = '#333'
+      header.style.backgroundColor = currentStyle.headerBg
       header.style.color = 'white'
       header.style.fontWeight = 'bold'
     })
     
-    // Contenu minimal
-    element.innerHTML = `
-      <div style="text-align: center; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">
-        <h3 style="margin: 0; color: #333; font-size: 14px;">SUIVI ALIMENTAIRE</h3>
-        <p style="margin: 2px 0 0 0; color: #666; font-size: 10px;">${getWeekDisplay(currentWeek)}</p>
-      </div>
-      ${tableClone.outerHTML}
-    `
+    // Contenu selon le style
+    let headerContent = ''
+    if (style === 'minimal') {
+      headerContent = `
+        <div style="text-align: center; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 3px;">
+          <h3 style="margin: 0; color: #333; font-size: 12px;">SUIVI ALIMENTAIRE</h3>
+          <p style="margin: 2px 0 0 0; color: #666; font-size: 9px;">${getWeekDisplay(currentWeek)}</p>
+        </div>
+      `
+    } else {
+      headerContent = `
+        <div style="text-align: center; margin-bottom: 15px;">
+          <h2 style="color: #333; margin: 0 0 5px 0; font-size: 16px;">Suivi Alimentaire de Joy Nathanaël</h2>
+          <p style="color: #666; margin: 0 0 3px 0; font-size: 12px;">${getWeekDisplay(currentWeek)}</p>
+          <p style="color: #999; margin: 0; font-size: 10px;">Dr AIDIBE KADRA Sarah</p>
+        </div>
+      `
+    }
     
+    element.innerHTML = headerContent + tableClone.outerHTML
     document.body.appendChild(element)
     
     const canvas = await html2canvas(element, {
@@ -320,7 +346,6 @@ const generatePDF = async () => {
     })
     
     const imgData = canvas.toDataURL('image/png')
-    
     const pdf = new jsPDF('l', 'mm', 'a4')
     const imgProps = pdf.getImageProperties(imgData)
     const pdfWidth = pdf.internal.pageSize.getWidth()
