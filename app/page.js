@@ -1,16 +1,15 @@
-'use client'
 import Header from '../components/Header'
 import FoodTracker from '../components/FoodTracker'
 import Recommendations from '../components/Recommendations'
-import TestComponent from '../components/TestComponent'
+import NetlifyWarning from '../components/NetlifyWarning'
 
 export default function Home() {
   return (
     <>
       <Header />
+      <NetlifyWarning />
       
       <div className="container">
-        <TestComponent />
         <FoodTracker />
         <Recommendations />
       </div>
