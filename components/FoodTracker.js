@@ -14,11 +14,13 @@ const daysOfWeek = [
   { name: "Dimanche", order: 7 }
 ]
 
+// Options pour le matin
 const morningOptions = [
   "210ml eau + 7 mesures lait 2ème âge",
   "210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales"
 ]
 
+// Options pour le repas de midi
 const vegetables = [
   "Carottes", "Haricots verts", "Épinards", "Courgettes", 
   "Blanc de poireaux", "Potirons", "Betteraves rouges", 
@@ -36,10 +38,20 @@ const fruits = [
   "Compote maison (sans sucre)", "Petit pot de fruits"
 ]
 
+// Options pour le goûter (16h)
 const snackOptions = [
-  "Laitage bébé + biscuit + fruit",
-  "Biberon 210ml + 7 mesures lait + céréales",
-  "Purée légumes + biberon 120-150ml lait"
+  "Laitage bébé (yaourt, petit suisse) + biscuit + fruits",
+  "Laitage bébé seul",
+  "Biscuit + fruits",
+  "Compote de fruits maison"
+]
+
+// Options pour le repas du soir
+const eveningOptions = [
+  "Biberon de 210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales",
+  "Biberon de soupe avec 5 mesures de lait 2ème âge",
+  "Purée de légumes + fromage râpé + biberon 120-150ml lait",
+  "Petit pot légumes + biberon lait"
 ]
 
 export default function FoodTracker() {
@@ -165,7 +177,7 @@ export default function FoodTracker() {
       element.style.position = 'absolute'
       element.style.left = '-9999px'
       element.style.top = '0'
-      element.style.width = '800px'
+      element.style.width = '1000px' // Plus large pour accommoder les nouvelles colonnes
       element.style.backgroundColor = 'white'
       element.style.padding = '20px'
       
@@ -175,14 +187,14 @@ export default function FoodTracker() {
       
       // Appliquer des styles pour le PDF
       tableClone.style.width = '100%'
-      tableClone.style.fontSize = '12px'
+      tableClone.style.fontSize = '10px' // Plus petit pour accommoder plus de colonnes
       tableClone.style.borderCollapse = 'collapse'
       
       // Styliser les cellules
       const cells = tableClone.querySelectorAll('th, td')
       cells.forEach(cell => {
         cell.style.border = '1px solid #ddd'
-        cell.style.padding = '8px'
+        cell.style.padding = '6px'
         cell.style.textAlign = 'left'
       })
       
@@ -197,12 +209,12 @@ export default function FoodTracker() {
       // Créer le contenu HTML pour le PDF
       element.innerHTML = `
         <div style="text-align: center; margin-bottom: 20px; font-family: Arial, sans-serif;">
-          <h1 style="color: #333; margin-bottom: 10px;">Suivi Alimentaire de Joy Nathanaël</h1>
-          <h2 style="color: #666; margin-bottom: 5px;">${getWeekDisplay(currentWeek)}</h2>
-          <p style="color: #999; font-size: 14px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
+          <h1 style="color: #333; margin-bottom: 10px; font-size: 20px;">Suivi Alimentaire de Joy Nathanaël</h1>
+          <h2 style="color: #666; margin-bottom: 5px; font-size: 16px;">${getWeekDisplay(currentWeek)}</h2>
+          <p style="color: #999; font-size: 12px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
         </div>
         ${tableClone.outerHTML}
-        <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666;">
+        <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">
           <p>Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
         </div>
       `
@@ -218,8 +230,8 @@ export default function FoodTracker() {
       
       const imgData = canvas.toDataURL('image/png')
       
-      // Créer le PDF
-      const pdf = new jsPDF('l', 'mm', 'a4') // Orientation paysage
+      // Créer le PDF en orientation paysage pour accommoder plus de colonnes
+      const pdf = new jsPDF('l', 'mm', 'a4')
       const imgProps = pdf.getImageProperties(imgData)
       const pdfWidth = pdf.internal.pageSize.getWidth()
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
@@ -321,9 +333,10 @@ export default function FoodTracker() {
         <thead>
           <tr>
             <th>Jour</th>
-            <th>Matin (Biberon)</th>
-            <th>Repas de Midi</th>
-            <th>Goûter</th>
+            <th>Matin</th>
+            <th>Midi</th>
+            <th>Goûter (16h)</th>
+            <th>Soir</th>
             <th>Remarques</th>
           </tr>
         </thead>
@@ -382,7 +395,7 @@ export default function FoodTracker() {
                 </div>
               </td>
               
-              {/* Goûter */}
+              {/* Goûter (16h) */}
               <td>
                 <select 
                   value={getDayData(day.name, 'snack')}
@@ -390,6 +403,19 @@ export default function FoodTracker() {
                 >
                   <option value="">-- Sélectionner --</option>
                   {snackOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </td>
+              
+              {/* Soir */}
+              <td>
+                <select 
+                  value={getDayData(day.name, 'evening')}
+                  onChange={(e) => saveDayData(day.name, 'evening', e.target.value)}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {eveningOptions.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
@@ -407,6 +433,17 @@ export default function FoodTracker() {
           ))}
         </tbody>
       </table>
+      
+      {/* Légende et informations importantes */}
+      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '5px', fontSize: '0.9rem' }}>
+        <h4 style={{ marginBottom: '0.5rem' }}>Informations importantes :</h4>
+        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+          <li><strong>Allaitement</strong> : 5-6 tétées par jour à la demande, terminer par la tétée si elle complète un repas solide</li>
+          <li><strong>Légumes</strong> : Cuits sans sel, avec 1 c.à.c d'huile végétale (colza, noix, olive) ou beurre</li>
+          <li><strong>Viandes/poissons</strong> : 10g (2 c.à.c), éviter abats et charcuterie (sauf jambon cuit découenné)</li>
+          <li><strong>Fruits</strong> : Bien mûrs, crus ou cuits, sans sucre ajouté</li>
+        </ul>
+      </div>
     </div>
   )
 }
