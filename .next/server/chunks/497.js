@@ -1,12 +1,1 @@
-exports.id=497,exports.ids=[497],exports.modules={41777:()=>{},35073:(e,r,o)=>{Promise.resolve().then(o.t.bind(o,13724,23)),Promise.resolve().then(o.t.bind(o,35365,23)),Promise.resolve().then(o.t.bind(o,44900,23)),Promise.resolve().then(o.t.bind(o,44714,23)),Promise.resolve().then(o.t.bind(o,45392,23)),Promise.resolve().then(o.t.bind(o,8898,23))},58489:(e,r,o)=>{"use strict";o.r(r),o.d(r,{default:()=>RootLayout,metadata:()=>t});var n=o(4656);o(67272);let t={title:"Suivi Alimentaire - Joy Nathana\xebl",description:"Application de suivi alimentaire pour Joy Nathana\xebl"};function RootLayout({children:e}){return(0,n.jsxs)("html",{lang:"fr",children:[n.jsx("head",{children:n.jsx("script",{dangerouslySetInnerHTML:{__html:`
-              window.addEventListener('error', function(e) {
-                console.error('Erreur globale:', e.error);
-                // Vous pouvez aussi envoyer ces erreurs \xe0 un service de logging
-              });
-              
-              window.addEventListener('unhandledrejection', function(e) {
-                console.error('Promise rejet\xe9e:', e.reason);
-              });
-              
-              console.log('Application charg\xe9e - version: ${Date.now()}');
-            `}})}),n.jsx("body",{children:e})]})}},67272:()=>{}};
+exports.id=497,exports.ids=[497],exports.modules={1777:()=>{},5073:(e,t,i)=>{Promise.resolve().then(i.t.bind(i,3724,23)),Promise.resolve().then(i.t.bind(i,5365,23)),Promise.resolve().then(i.t.bind(i,4900,23)),Promise.resolve().then(i.t.bind(i,4714,23)),Promise.resolve().then(i.t.bind(i,5392,23)),Promise.resolve().then(i.t.bind(i,8898,23))},8489:(e,t,i)=>{"use strict";i.r(t),i.d(t,{default:()=>RootLayout,metadata:()=>r});var o=i(4656);i(7272);let r={title:"Suivi Alimentaire - Joy Nathana\xebl",description:"Application de suivi alimentaire pour Joy Nathana\xebl",metadataBase:new URL("https://votre-site.netlify.app")};function RootLayout({children:e}){return o.jsx("html",{lang:"fr",children:o.jsx("body",{children:e})})}},7272:()=>{}};

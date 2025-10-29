@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { foodTrackerAPI } from '../lib/supabase'
 
+// Données statiques - toujours disponibles
 const daysOfWeek = [
   { name: "Lundi", order: 1 },
   { name: "Mardi", order: 2 },
@@ -12,13 +12,11 @@ const daysOfWeek = [
   { name: "Dimanche", order: 7 }
 ]
 
-// Options pour le matin
 const morningOptions = [
   "210ml eau + 7 mesures lait 2ème âge",
   "210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales"
 ]
 
-// Options pour le repas de midi
 const vegetables = [
   "Carottes", "Haricots verts", "Épinards", "Courgettes", 
   "Blanc de poireaux", "Potirons", "Betteraves rouges", 
@@ -36,7 +34,6 @@ const fruits = [
   "Compote maison (sans sucre)", "Petit pot de fruits"
 ]
 
-// Options pour le goûter (16h)
 const snackOptions = [
   "Laitage bébé (yaourt, petit suisse) + biscuit + fruits",
   "Laitage bébé seul",
@@ -44,7 +41,6 @@ const snackOptions = [
   "Compote de fruits maison"
 ]
 
-// Options pour le repas du soir
 const eveningOptions = [
   "Biberon de 210ml eau + 7 mesures lait 2ème âge + 1-2 c.à.s céréales",
   "Biberon de soupe avec 5 mesures de lait 2ème âge",
@@ -55,52 +51,41 @@ const eveningOptions = [
 export default function FoodTracker() {
   const [currentWeek, setCurrentWeek] = useState('')
   const [weekData, setWeekData] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [weeksHistory, setWeeksHistory] = useState([])
-  const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
-  // Fonction pour obtenir le lundi d'une semaine
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+    initializeWeek()
+  }, [])
+
+  const initializeWeek = () => {
+    const today = new Date()
+    const monday = getMonday(today)
+    setCurrentWeek(monday)
+    
+    // Charger les données depuis localStorage
+    loadFromLocalStorage(monday)
+  }
+
   const getMonday = (date) => {
     const d = new Date(date)
     const day = d.getDay()
     const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    const monday = new Date(d.setDate(diff))
-    return monday.toISOString().split('T')[0]
+    return new Date(d.setDate(diff)).toISOString().split('T')[0]
   }
 
-  // Initialiser la semaine courante
-  useEffect(() => {
-    const today = new Date()
-    const weekString = getMonday(today)
-    setCurrentWeek(weekString)
-  }, [])
-
-  // Charger les données de la semaine
-  useEffect(() => {
-    if (currentWeek) {
-      loadWeekData()
-      loadWeeksHistory()
-    }
-  }, [currentWeek])
-
-  const loadWeekData = async () => {
-    setLoading(true)
+  const loadFromLocalStorage = (week) => {
     try {
-      const data = await foodTrackerAPI.getWeekData(currentWeek)
-      const dataMap = {}
-      if (data && data.length > 0) {
-        data.forEach(item => {
-          dataMap[item.day_name] = item
-        })
-        setWeekData(dataMap)
+      const saved = localStorage.getItem(`foodTracker-${week}`)
+      if (saved) {
+        setWeekData(JSON.parse(saved))
       } else {
-        // Créer une structure vide pour la nouvelle semaine
+        // Créer des données vides
         const emptyData = {}
         daysOfWeek.forEach(day => {
           emptyData[day.name] = {
-            week_start: currentWeek,
-            day_name: day.name,
-            day_order: day.order,
             morning: '',
             vegetable: '',
             protein: '',
@@ -113,54 +98,28 @@ export default function FoodTracker() {
         setWeekData(emptyData)
       }
     } catch (error) {
-      console.error('Erreur lors du chargement:', error)
-      // Créer une structure vide en cas d'erreur
-      const emptyData = {}
-      daysOfWeek.forEach(day => {
-        emptyData[day.name] = {
-          week_start: currentWeek,
-          day_name: day.name,
-          day_order: day.order
-        }
-      })
-      setWeekData(emptyData)
-    }
-    setLoading(false)
-  }
-
-  const loadWeeksHistory = async () => {
-    try {
-      const history = await foodTrackerAPI.getWeeksHistory()
-      setWeeksHistory(history || [])
-    } catch (error) {
-      console.error('Erreur lors du chargement de l\'historique:', error)
-      setWeeksHistory([])
+      console.log('Aucune donnée sauvegardée')
     }
   }
 
-  const saveDayData = async (dayName, field, value) => {
-    const dayData = weekData[dayName] || {
-      week_start: currentWeek,
-      day_name: dayName,
-      day_order: daysOfWeek.find(d => d.name === dayName).order
-    }
-
-    const updatedData = {
-      ...dayData,
-      [field]: value,
-      updated_at: new Date().toISOString()
-    }
-
+  const saveToLocalStorage = (data) => {
     try {
-      await foodTrackerAPI.saveDayData(updatedData)
-      setWeekData(prev => ({
-        ...prev,
-        [dayName]: updatedData
-      }))
+      localStorage.setItem(`foodTracker-${currentWeek}`, JSON.stringify(data))
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error)
-      alert('Erreur lors de la sauvegarde')
+      console.error('Erreur sauvegarde localStorage:', error)
     }
+  }
+
+  const handleInputChange = (dayName, field, value) => {
+    const newData = {
+      ...weekData,
+      [dayName]: {
+        ...weekData[dayName],
+        [field]: value
+      }
+    }
+    setWeekData(newData)
+    saveToLocalStorage(newData)
   }
 
   const getDayData = (dayName, field) => {
@@ -172,15 +131,18 @@ export default function FoodTracker() {
     const currentDate = new Date(currentWeek)
     const newDate = new Date(currentDate)
     newDate.setDate(currentDate.getDate() + (direction * 7))
-    setCurrentWeek(getMonday(newDate))
+    const newWeek = getMonday(newDate)
+    setCurrentWeek(newWeek)
+    loadFromLocalStorage(newWeek)
   }
 
   const goToCurrentWeek = () => {
     const today = new Date()
-    setCurrentWeek(getMonday(today))
+    const week = getMonday(today)
+    setCurrentWeek(week)
+    loadFromLocalStorage(week)
   }
 
-  // Fonction pour formater l'affichage de la semaine
   const getWeekDisplay = (weekString) => {
     try {
       const date = new Date(weekString)
@@ -192,139 +154,83 @@ export default function FoodTracker() {
     }
   }
 
-  // Fonction pour générer le PDF avec jsPDF et html2canvas
-  const generatePDF = async () => {
-    setGeneratingPDF(true)
-    try {
-      // Import dynamique pour éviter les erreurs de bundle
-      const { default: jsPDF } = await import('jspdf')
-      const { default: html2canvas } = await import('html2canvas')
-
-      // Créer un élément temporaire pour la capture
-      const element = document.createElement('div')
-      element.style.position = 'absolute'
-      element.style.left = '-9999px'
-      element.style.top = '0'
-      element.style.width = '1200px'
-      element.style.backgroundColor = 'white'
-      element.style.padding = '20px'
-      element.style.fontFamily = 'Arial, sans-serif'
-      
-      // Créer le contenu HTML pour le PDF
-      element.innerHTML = `
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #333; margin-bottom: 10px; font-size: 24px;">Suivi Alimentaire de Joy Nathanaël</h1>
-          <h2 style="color: #666; margin-bottom: 5px; font-size: 18px;">${getWeekDisplay(currentWeek)}</h2>
-          <p style="color: #999; font-size: 14px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
-        </div>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-          <thead>
-            <tr>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Jour</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Matin</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Midi</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Goûter (16h)</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Soir</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Remarques</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${daysOfWeek.map(day => {
-              const dayData = weekData[day.name] || {}
-              return `
-                <tr>
-                  <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${day.name}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.morning || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">
-                    ${dayData.vegetable ? `<div><strong>Légume:</strong> ${dayData.vegetable}</div>` : ''}
-                    ${dayData.protein ? `<div><strong>Protéine:</strong> ${dayData.protein}</div>` : ''}
-                    ${dayData.fruit_lunch ? `<div><strong>Fruit:</strong> ${dayData.fruit_lunch}</div>` : ''}
-                  </td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.snack || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.evening || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.remarks || ''}</td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
-        
-        <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666;">
-          <p>Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
-        </div>
-      `
-      
-      document.body.appendChild(element)
-      
-      // Capturer l'élément avec html2canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false
-      })
-      
-      const imgData = canvas.toDataURL('image/png')
-      
-      // Créer le PDF en orientation paysage
-      const pdf = new jsPDF('l', 'mm', 'a4')
-      const imgProps = pdf.getImageProperties(imgData)
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
-      
-      // Nettoyer l'élément temporaire
-      document.body.removeChild(element)
-      
-    } catch (error) {
-      console.error('Erreur lors de la génération du PDF:', error)
-      alert('Erreur lors de la génération du PDF')
-    } finally {
-      setGeneratingPDF(false)
-    }
+  const generatePDF = () => {
+    // Simple impression pour commencer
+    window.print()
   }
 
-  // Fonction pour créer une nouvelle semaine
   const createNewWeek = () => {
     const nextWeek = new Date(currentWeek)
     nextWeek.setDate(nextWeek.getDate() + 7)
-    const newWeekString = getMonday(nextWeek)
-    setCurrentWeek(newWeekString)
+    const newWeek = getMonday(nextWeek)
+    setCurrentWeek(newWeek)
+    
+    // Créer de nouvelles données vides
+    const emptyData = {}
+    daysOfWeek.forEach(day => {
+      emptyData[day.name] = {
+        morning: '',
+        vegetable: '',
+        protein: '',
+        fruit_lunch: '',
+        snack: '',
+        evening: '',
+        remarks: ''
+      }
+    })
+    setWeekData(emptyData)
+    saveToLocalStorage(emptyData)
   }
 
-  if (loading) {
-    return <div className="loading">Chargement des données...</div>
+  if (!isClient) {
+    return (
+      <div className="card">
+        <div className="loading">Chargement de l'application...</div>
+      </div>
+    )
   }
 
   return (
     <div className="card">
-      <div className="week-navigation">
-        <div className="week-nav-buttons">
+      {/* En-tête avec navigation */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '1rem', 
+        flexWrap: 'wrap', 
+        gap: '1rem',
+        padding: '1rem',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button 
             className="btn" 
             onClick={() => navigateWeek(-1)}
             title="Semaine précédente"
+            style={{ padding: '0.5rem 1rem' }}
           >
-            ←
+            ← Précédente
           </button>
           
-          <h2 style={{ margin: 0 }}>{getWeekDisplay(currentWeek)}</h2>
+          <h2 style={{ margin: 0, color: '#333' }}>{getWeekDisplay(currentWeek)}</h2>
           
           <button 
             className="btn" 
             onClick={() => navigateWeek(1)}
             title="Semaine suivante"
+            style={{ padding: '0.5rem 1rem' }}
           >
-            →
+            Suivante →
           </button>
         </div>
         
-        <div className="week-actions">
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button 
             className="btn" 
             onClick={goToCurrentWeek}
+            style={{ backgroundColor: '#6c757d', color: 'white', padding: '0.5rem 1rem' }}
           >
             Cette semaine
           </button>
@@ -332,148 +238,154 @@ export default function FoodTracker() {
           <button 
             className="btn btn-success" 
             onClick={generatePDF}
-            disabled={generatingPDF}
+            style={{ backgroundColor: '#28a745', color: 'white', padding: '0.5rem 1rem' }}
           >
-            {generatingPDF ? '⏳ Génération...' : '📄 Télécharger PDF'}
+            📄 Télécharger PDF
           </button>
           
           <button 
             className="btn" 
             onClick={createNewWeek}
             title="Créer une nouvelle semaine"
+            style={{ backgroundColor: '#007bff', color: 'white', padding: '0.5rem 1rem' }}
           >
             + Nouvelle semaine
           </button>
         </div>
       </div>
 
-      {/* Sélecteur de semaine rapide */}
-      <div style={{ marginBottom: '1rem' }}>
-        <label htmlFor="week-select">Aller à une semaine spécifique : </label>
-        <select 
-          id="week-select"
-          value={currentWeek} 
-          onChange={(e) => setCurrentWeek(e.target.value)}
-          style={{ marginLeft: '0.5rem', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
-        >
-          {weeksHistory.map(week => (
-            <option key={week} value={week}>
-              {getWeekDisplay(week)}
-            </option>
-          ))}
-          <option value={currentWeek}>{getWeekDisplay(currentWeek)} (actuelle)</option>
-        </select>
+      {/* Tableau COMPLET avec toutes les colonnes */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+          <thead>
+            <tr>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Jour</th>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Matin</th>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Midi</th>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Goûter (16h)</th>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Soir</th>
+              <th style={{ padding: '12px', backgroundColor: '#4a90e2', color: 'white', textAlign: 'left' }}>Remarques</th>
+            </tr>
+          </thead>
+          <tbody>
+            {daysOfWeek.map(day => (
+              <tr key={day.name} style={{ borderBottom: '1px solid #ddd' }}>
+                <td style={{ padding: '12px', fontWeight: 'bold' }}>{day.name}</td>
+                
+                {/* Matin */}
+                <td style={{ padding: '12px' }}>
+                  <select 
+                    value={getDayData(day.name, 'morning')}
+                    onChange={(e) => handleInputChange(day.name, 'morning', e.target.value)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {morningOptions.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </td>
+                
+                {/* Midi */}
+                <td style={{ padding: '12px' }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <select 
+                      value={getDayData(day.name, 'vegetable')}
+                      onChange={(e) => handleInputChange(day.name, 'vegetable', e.target.value)}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    >
+                      <option value="">-- Légume --</option>
+                      {vegetables.map(veg => (
+                        <option key={veg} value={veg}>{veg}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <select 
+                      value={getDayData(day.name, 'protein')}
+                      onChange={(e) => handleInputChange(day.name, 'protein', e.target.value)}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    >
+                      <option value="">-- Viande/Poisson --</option>
+                      {proteins.map(protein => (
+                        <option key={protein} value={protein}>{protein}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <select 
+                      value={getDayData(day.name, 'fruit_lunch')}
+                      onChange={(e) => handleInputChange(day.name, 'fruit_lunch', e.target.value)}
+                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    >
+                      <option value="">-- Fruit --</option>
+                      {fruits.map(fruit => (
+                        <option key={fruit} value={fruit}>{fruit}</option>
+                      ))}
+                    </select>
+                  </div>
+                </td>
+                
+                {/* Goûter */}
+                <td style={{ padding: '12px' }}>
+                  <select 
+                    value={getDayData(day.name, 'snack')}
+                    onChange={(e) => handleInputChange(day.name, 'snack', e.target.value)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {snackOptions.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </td>
+                
+                {/* Soir */}
+                <td style={{ padding: '12px' }}>
+                  <select 
+                    value={getDayData(day.name, 'evening')}
+                    onChange={(e) => handleInputChange(day.name, 'evening', e.target.value)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {eveningOptions.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </td>
+                
+                {/* Remarques */}
+                <td style={{ padding: '12px' }}>
+                  <textarea 
+                    value={getDayData(day.name, 'remarks')}
+                    onChange={(e) => handleInputChange(day.name, 'remarks', e.target.value)}
+                    placeholder="Notes, refus, préférences..."
+                    style={{ 
+                      width: '100%', 
+                      padding: '8px', 
+                      border: '1px solid #ddd', 
+                      borderRadius: '4px',
+                      minHeight: '80px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <table id="food-tracker-table">
-        <thead>
-          <tr>
-            <th>Jour</th>
-            <th>Matin</th>
-            <th>Midi</th>
-            <th>Goûter (16h)</th>
-            <th>Soir</th>
-            <th>Remarques</th>
-          </tr>
-        </thead>
-        <tbody>
-          {daysOfWeek.map(day => (
-            <tr key={day.name}>
-              <td><strong>{day.name}</strong></td>
-              
-              {/* Matin */}
-              <td>
-                <select 
-                  value={getDayData(day.name, 'morning')}
-                  onChange={(e) => saveDayData(day.name, 'morning', e.target.value)}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  {morningOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </td>
-              
-              {/* Repas de Midi */}
-              <td>
-                <div style={{ marginBottom: '5px' }}>
-                  <select 
-                    value={getDayData(day.name, 'vegetable')}
-                    onChange={(e) => saveDayData(day.name, 'vegetable', e.target.value)}
-                  >
-                    <option value="">-- Légume --</option>
-                    {vegetables.map(veg => (
-                      <option key={veg} value={veg}>{veg}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ marginBottom: '5px' }}>
-                  <select 
-                    value={getDayData(day.name, 'protein')}
-                    onChange={(e) => saveDayData(day.name, 'protein', e.target.value)}
-                  >
-                    <option value="">-- Viande/Poisson --</option>
-                    {proteins.map(protein => (
-                      <option key={protein} value={protein}>{protein}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <select 
-                    value={getDayData(day.name, 'fruit_lunch')}
-                    onChange={(e) => saveDayData(day.name, 'fruit_lunch', e.target.value)}
-                  >
-                    <option value="">-- Fruit --</option>
-                    {fruits.map(fruit => (
-                      <option key={fruit} value={fruit}>{fruit}</option>
-                    ))}
-                  </select>
-                </div>
-              </td>
-              
-              {/* Goûter (16h) */}
-              <td>
-                <select 
-                  value={getDayData(day.name, 'snack')}
-                  onChange={(e) => saveDayData(day.name, 'snack', e.target.value)}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  {snackOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </td>
-              
-              {/* Soir */}
-              <td>
-                <select 
-                  value={getDayData(day.name, 'evening')}
-                  onChange={(e) => saveDayData(day.name, 'evening', e.target.value)}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  {eveningOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </td>
-              
-              {/* Remarques */}
-              <td>
-                <textarea 
-                  value={getDayData(day.name, 'remarks')}
-                  onChange={(e) => saveDayData(day.name, 'remarks', e.target.value)}
-                  placeholder="Notes, refus, préférences..."
-                  style={{ minHeight: '80px' }}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      
-      {/* Légende et informations importantes */}
-      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '5px', fontSize: '0.9rem' }}>
-        <h4 style={{ marginBottom: '0.5rem' }}>Informations importantes :</h4>
+      {/* Informations importantes */}
+      <div style={{ 
+        marginTop: '1rem', 
+        padding: '1rem', 
+        backgroundColor: '#e8f4fd', 
+        borderRadius: '5px', 
+        fontSize: '0.9rem',
+        borderLeft: '4px solid #4a90e2'
+      }}>
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Informations importantes :</h4>
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li><strong>Allaitement</strong> : 5-6 tétées par jour à la demande, terminer par la tétée si elle complète un repas solide</li>
           <li><strong>Légumes</strong> : Cuits sans sel, avec 1 c.à.c d'huile végétale (colza, noix, olive) ou beurre</li>
