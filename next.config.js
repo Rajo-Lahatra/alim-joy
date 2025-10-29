@@ -1,14 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuration pour Vercel - pas d'export statique
+  // NE PAS utiliser 'export' pour Vercel
   trailingSlash: false,
   images: {
     unoptimized: true
   },
-  // Désactiver les fonctionnalités qui nécessitent le serveur si vous n'en avez pas besoin
-  experimental: {
-    esmExternals: 'loose'
-  }
+  // Désactiver le strict mode si ça cause des problèmes
+  reactStrictMode: false,
 }
 
 module.exports = nextConfig
