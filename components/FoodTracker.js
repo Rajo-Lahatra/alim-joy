@@ -629,7 +629,23 @@ export default function FoodTracker() {
           </tbody>
         </table>
       </div>
-
+{/* Consignes */}
+      <div style={{ 
+        marginTop: '1rem', 
+        padding: '1rem', 
+        backgroundColor: '#e8f4fd', 
+        borderRadius: '5px', 
+        fontSize: '0.9rem',
+        borderLeft: '4px solid #4a90e2'
+      }}>
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Informations importantes :</h4>
+        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+          <li><strong>Allaitement</strong> : 5-6 tétées par jour à la demande, terminer par la tétée si elle complète un repas solide</li>
+          <li><strong>Légumes</strong> : Cuits sans sel, avec 1 c.à.c d'huile végétale (colza, noix, olive) ou beurre</li>
+          <li><strong>Viandes/poissons</strong> : 10g (2 c.à.c), éviter abats et charcuterie (sauf jambon cuit découenné)</li>
+          <li><strong>Fruits</strong> : Bien mûrs, crus ou cuits, sans sucre ajouté</li>
+        </ul>
+      </div>
       {/* Informations importantes */}
       <div style={{ 
         marginTop: '1rem', 
@@ -639,7 +655,7 @@ export default function FoodTracker() {
         fontSize: '0.9rem',
         borderLeft: '4px solid #4a90e2'
       }}>
-        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Mode Planification 🗓️</h4>
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c6fb7' }}>Instructions pour le Mode Planification 🗓️</h4>
         <p style={{ marginBottom: '0.5rem' }}>
           <strong>Vous pouvez maintenant planifier les semaines à venir !</strong>
         </p>
