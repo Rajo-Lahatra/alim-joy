@@ -4,10 +4,11 @@
   "description": "Application de suivi alimentaire pour Joy Nathanaël",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build.js && next build",
+    "build": "next build",
+    "build:vercel": "next build",
+    "build:netlify": "next build && next export",
     "start": "next start",
-    "lint": "next lint",
-    "export": "next build && next export"
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "13.5.6",

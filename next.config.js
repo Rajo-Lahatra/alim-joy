@@ -1,9 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // NE PAS utiliser 'export' - nous voulons une application React
+  // Configuration pour Vercel - pas d'export statique
   trailingSlash: false,
   images: {
     unoptimized: true
+  },
+  // Désactiver les fonctionnalités qui nécessitent le serveur si vous n'en avez pas besoin
+  experimental: {
+    esmExternals: 'loose'
   }
 }
 
