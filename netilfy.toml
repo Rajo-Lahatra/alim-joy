@@ -5,8 +5,14 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Redirections simples
+# Redirections pour Next.js
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Pour les assets Next.js
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    "Cache-Control" = "public, max-age=31536000, immutable"

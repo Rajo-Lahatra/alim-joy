@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuration de base - pas d'export statique
-  trailingSlash: true,
+  // NE PAS utiliser 'export' - nous voulons une application React
+  trailingSlash: false,
   images: {
     unoptimized: true
   }
