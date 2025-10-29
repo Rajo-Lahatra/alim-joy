@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { foodTrackerAPI } from '../lib/supabase'
 
 // Données statiques - toujours disponibles
 const daysOfWeek = [
@@ -53,12 +54,93 @@ export default function FoodTracker() {
   const [weekData, setWeekData] = useState({})
   const [loading, setLoading] = useState(false)
   const [isClient, setIsClient] = useState(false)
+const [supabaseStatus, setSupabaseStatus] = useState('idle') // 'idle', 'loading', 'success', 'error'
+const saveWeekToSupabase = async () => {
+    setSupabaseStatus('loading')
+    try {
+      const success = await foodTrackerAPI.saveWeek(weekData, currentWeek)
+      if (success) {
+        setSupabaseStatus('success')
+        setTimeout(() => setSupabaseStatus('idle'), 3000) // Reset après 3 secondes
+      } else {
+        setSupabaseStatus('error')
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde Supabase:', error)
+      setSupabaseStatus('error')
+    }
+  }
+
+  // Fonction pour charger la semaine depuis Supabase
+  const loadWeekFromSupabase = async () => {
+    setSupabaseStatus('loading')
+    try {
+      const data = await foodTrackerAPI.loadWeek(currentWeek)
+      if (data) {
+        setWeekData(data)
+        saveToLocalStorage(data)
+        setSupabaseStatus('success')
+        setTimeout(() => setSupabaseStatus('idle'), 3000)
+      } else {
+        setSupabaseStatus('error')
+        alert('Aucune donnée trouvée pour cette semaine sur Supabase')
+      }
+    } catch (error) {
+      console.error('Erreur chargement Supabase:', error)
+      setSupabaseStatus('error')
+    }
+  }
+
+  // Fonction pour réinitialiser la semaine sur Supabase
+  const resetWeekInSupabase = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir réinitialiser cette semaine sur Supabase ? Cette action supprimera définitivement les données.')) {
+      return
+    }
+
+    setSupabaseStatus('loading')
+    try {
+      const success = await foodTrackerAPI.resetWeek(currentWeek)
+      if (success) {
+        // Réinitialiser aussi le localStorage
+        const emptyData = createEmptyWeekData()
+        setWeekData(emptyData)
+        saveToLocalStorage(emptyData)
+        setSupabaseStatus('success')
+        setTimeout(() => setSupabaseStatus('idle'), 3000)
+      } else {
+        setSupabaseStatus('error')
+      }
+    } catch (error) {
+      console.error('Erreur réinitialisation Supabase:', error)
+      setSupabaseStatus('error')
+    }
+  }
+
+  // Fonction utilitaire pour créer des données vides
+  const createEmptyWeekData = () => {
+    const emptyData = {}
+    daysOfWeek.forEach(day => {
+      emptyData[day.name] = {
+        morning: '',
+        vegetable: '',
+        protein: '',
+        fruit_lunch: '',
+        snack: '',
+        evening: '',
+        remarks: ''
+      }
+    })
+    return emptyData
+  }
 
   // S'assurer que nous sommes côté client
   useEffect(() => {
     setIsClient(true)
     initializeWeek()
-  }, [])
+    if (isClient && currentWeek) {
+      loadWeekFromSupabase().catch(console.error)
+    }
+  }, [currentWeek, isClient])
 
   const initializeWeek = () => {
     const today = new Date()
@@ -251,9 +333,59 @@ export default function FoodTracker() {
           >
             + Nouvelle semaine
           </button>
+          <button 
+          className="btn btn-success" 
+          onClick={saveWeekToSupabase}
+          disabled={supabaseStatus === 'loading'}
+          style={{ 
+            backgroundColor: supabaseStatus === 'success' ? '#28a745' : 
+                           supabaseStatus === 'error' ? '#dc3545' : '#28a745',
+            opacity: supabaseStatus === 'loading' ? 0.6 : 1
+          }}
+        >
+          {supabaseStatus === 'loading' ? '⏳ Sauvegarde...' : 
+           supabaseStatus === 'success' ? '✅ Sauvegardé!' :
+           supabaseStatus === 'error' ? '❌ Erreur' : '💾 Sauvegarder sur Supabase'}
+        </button>
+
+        <button 
+          className="btn" 
+          onClick={loadWeekFromSupabase}
+          disabled={supabaseStatus === 'loading'}
+          style={{ 
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            opacity: supabaseStatus === 'loading' ? 0.6 : 1
+          }}
+        >
+          {supabaseStatus === 'loading' ? '⏳ Chargement...' : '📥 Charger depuis Supabase'}
+        </button>
+
+        <button 
+          className="btn btn-danger" 
+          onClick={resetWeekInSupabase}
+          disabled={supabaseStatus === 'loading'}
+          style={{ opacity: supabaseStatus === 'loading' ? 0.6 : 1 }}
+        >
+          {supabaseStatus === 'loading' ? '⏳ Réinitialisation...' : '🗑️ Réinitialiser la semaine'}
+        </button>
+      
         </div>
       </div>
-
+{/* Indicateur de statut Supabase */}
+      {supabaseStatus === 'error' && (
+        <div style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '0.75rem',
+          borderRadius: '4px',
+          marginBottom: '1rem',
+          textAlign: 'center',
+          border: '1px solid #f5c6cb'
+        }}>
+          ❌ Erreur de connexion à Supabase. Vérifiez votre connexion internet.
+        </div>
+      )}
       {/* Tableau COMPLET avec toutes les colonnes */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
