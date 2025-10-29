@@ -262,98 +262,88 @@ export default function FoodTracker() {
   }
 
   // Fonction pour générer le PDF avec jsPDF et html2canvas
-  const generatePDF = async () => {
-    setGeneratingPDF(true)
-    try {
-      // Import dynamique pour éviter les erreurs de bundle
-      const { default: jsPDF } = await import('jspdf')
-      const { default: html2canvas } = await import('html2canvas')
+  // Fonction pour générer le PDF avec jsPDF et html2canvas
+const generatePDF = async () => {
+  setGeneratingPDF(true)
+  try {
+    // Import dynamique pour éviter les erreurs de bundle
+    const { default: jsPDF } = await import('jspdf')
+    const { default: html2canvas } = await import('html2canvas')
 
-      // Créer un élément temporaire pour la capture
-      const element = document.createElement('div')
-      element.style.position = 'absolute'
-      element.style.left = '-9999px'
-      element.style.top = '0'
-      element.style.width = '1200px'
-      element.style.backgroundColor = 'white'
-      element.style.padding = '20px'
-      element.style.fontFamily = 'Arial, sans-serif'
-      
-      // Créer le contenu HTML pour le PDF
-      element.innerHTML = `
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #333; margin-bottom: 10px; font-size: 24px;">Suivi Alimentaire de Joy Nathanaël</h1>
-          <h2 style="color: #666; margin-bottom: 5px; font-size: 18px;">${getWeekDisplay(currentWeek)}</h2>
-          <p style="color: #999; font-size: 14px;">Basé sur les recommandations du Dr AIDIBE KADRA Sarah</p>
-        </div>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-          <thead>
-            <tr>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Jour</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Matin</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Midi</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Goûter (16h)</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Soir</th>
-              <th style="border: 1px solid #ddd; padding: 8px; background-color: #4a90e2; color: white; text-align: left;">Remarques</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${daysOfWeek.map(day => {
-              const dayData = weekData[day.name] || {}
-              return `
-                <tr>
-                  <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${day.name}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.morning || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">
-                    ${dayData.vegetable ? `<div><strong>Légume:</strong> ${dayData.vegetable}</div>` : ''}
-                    ${dayData.protein ? `<div><strong>Protéine:</strong> ${dayData.protein}</div>` : ''}
-                    ${dayData.fruit_lunch ? `<div><strong>Fruit:</strong> ${dayData.fruit_lunch}</div>` : ''}
-                  </td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.snack || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.evening || ''}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${dayData.remarks || ''}</td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
-        
-        <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666;">
-          <p>Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
-        </div>
-      `
-      
-      document.body.appendChild(element)
-      
-      // Capturer l'élément avec html2canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false
-      })
-      
-      const imgData = canvas.toDataURL('image/png')
-      
-      // Créer le PDF en orientation paysage
-      const pdf = new jsPDF('l', 'mm', 'a4')
-      const imgProps = pdf.getImageProperties(imgData)
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
-      
-      // Nettoyer l'élément temporaire
-      document.body.removeChild(element)
-      
-    } catch (error) {
-      console.error('Erreur lors de la génération du PDF:', error)
-      alert('Erreur lors de la génération du PDF')
-    } finally {
-      setGeneratingPDF(false)
-    }
+    // Créer un élément temporaire pour la capture
+    const element = document.createElement('div')
+    element.style.position = 'absolute'
+    element.style.left = '-9999px'
+    element.style.top = '0'
+    element.style.width = '1000px'
+    element.style.backgroundColor = 'white'
+    element.style.padding = '20px'
+    element.style.fontFamily = 'Arial, sans-serif'
+    
+    // Cloner le tableau
+    const originalTable = document.querySelector('table')
+    const tableClone = originalTable.cloneNode(true)
+    
+    // Appliquer des styles pour le PDF
+    tableClone.style.width = '100%'
+    tableClone.style.fontSize = '10px'
+    tableClone.style.borderCollapse = 'collapse'
+    
+    // Styliser les cellules
+    const cells = tableClone.querySelectorAll('th, td')
+    cells.forEach(cell => {
+      cell.style.border = '1px solid #ddd'
+      cell.style.padding = '6px'
+      cell.style.textAlign = 'left'
+    })
+    
+    // Styliser les en-têtes
+    const headers = tableClone.querySelectorAll('th')
+    headers.forEach(header => {
+      header.style.backgroundColor = '#4a90e2'
+      header.style.color = 'white'
+      header.style.fontWeight = 'bold'
+    })
+    
+    // Créer le contenu HTML minimal pour le PDF
+    element.innerHTML = `
+      <div style="text-align: center; margin-bottom: 15px;">
+        <h2 style="color: #333; margin: 0 0 5px 0; font-size: 18px;">Suivi Alimentaire - ${getWeekDisplay(currentWeek)}</h2>
+        <p style="color: #666; margin: 0; font-size: 12px;">Joy Nathanaël - Dr AIDIBE KADRA Sarah</p>
+      </div>
+      ${tableClone.outerHTML}
+    `
+    
+    document.body.appendChild(element)
+    
+    // Capturer l'élément avec html2canvas
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false
+    })
+    
+    const imgData = canvas.toDataURL('image/png')
+    
+    // Créer le PDF en orientation paysage
+    const pdf = new jsPDF('l', 'mm', 'a4')
+    const imgProps = pdf.getImageProperties(imgData)
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+    pdf.save(`suivi-alimentaire-${currentWeek}.pdf`)
+    
+    // Nettoyer l'élément temporaire
+    document.body.removeChild(element)
+    
+  } catch (error) {
+    console.error('Erreur lors de la génération du PDF:', error)
+    alert('Erreur lors de la génération du PDF')
+  } finally {
+    setGeneratingPDF(false)
   }
+}
 
   // Fonction pour créer une nouvelle semaine
   const createNewWeek = () => {
