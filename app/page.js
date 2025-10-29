@@ -2,15 +2,12 @@ import Header from '../components/Header'
 import FoodTracker from '../components/FoodTracker'
 import Recommendations from '../components/Recommendations'
 import NetlifyWarning from '../components/NetlifyWarning'
-import Debug from '../components/Debug'
 
 
 export default function Home() {
   return (
     <>
       <Header />
-      <Debug />
-      <NetlifyWarning />
       
       <div className="container">
         <FoodTracker />

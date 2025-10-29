@@ -1,13 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // NE PAS utiliser 'export' - laisser Next.js gérer le rendu
+  // Configuration de base - pas d'export statique
   trailingSlash: true,
   images: {
     unoptimized: true
-  },
-  // Désactiver les fonctionnalités qui nécessitent le serveur
-  experimental: {
-    esmExternals: 'loose'
   }
 }
 

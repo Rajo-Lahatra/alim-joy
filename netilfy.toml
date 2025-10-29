@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Redirections simples
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
