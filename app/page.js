@@ -1,7 +1,6 @@
 import Header from '../components/Header'
 import FoodTracker from '../components/FoodTracker'
 import Recommendations from '../components/Recommendations'
-import NetlifyWarning from '../components/NetlifyWarning'
 
 
 export default function Home() {
